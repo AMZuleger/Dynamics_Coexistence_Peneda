@@ -18,12 +18,7 @@ library(reshape)
 library(MASS)
 library(gridExtra)
 
-library(usdm)
-library(RColorBrewer)
-
-
-
-setwd("C:/Users/az66lozy/Documents/Projects/PhD/Analysis/Occupancy_modelling/Publication_data/Data")
+setwd("C:/Users/az66lozy/Documents/Dynamics_Coexistence_Peneda/Data")
 
 ## Site covariates for season 1 (2015)
 
@@ -234,7 +229,7 @@ for(psi in 1:length(psi_formulas)) {
 
 ########### Automated model selection #############
 
-setwd("C:/Users/az66lozy/Documents/Projects/PhD/Analysis/Occupancy_modelling/Publication_data/Results")
+setwd("C:/Users/az66lozy/Documents/Dynamics_Coexistence_Peneda/Results")
 
 # Run models parallel on several cores because otherwise it will take forever # 
 
@@ -1073,7 +1068,7 @@ summary(ibex_int_final)
 
 ############################################## Create figures ########################################################
 
-setwd("C:/Users/az66lozy/Documents/Projects/PhD/Analysis/Occupancy_modelling/Publication_data/Figures")
+setwd("C:/Users/az66lozy/Documents/Dynamics_Coexistence_Peneda/Figures")
 
 ###### Figure 3. Occupancy trends ######
 
