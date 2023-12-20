@@ -18,12 +18,14 @@ The issue of agricultural land abandonment in Southern Europe has raised concern
 
 ### Results
 
+* Model_Summaries_Publication.docx --> Model summaries per species for dynamic occupancy model, temporal trend model and interaction model
 Created through R-Script
 * Occupancy estimates per species for each grid cell per primary sampling period obtained from final models (e.g. Occ_cattle_site.csv)
 * occ_all_grid.csv --> Occupancy estimates for all species per primary sampling period and grid cell obtained from final models
 * occ_all_site_long.csv --> long format version of occ_all_grid.csv 
 * occ_pred_all.csv --> Occupancy estimates and standard errors for each species per primary sampling period obtained from final models through bootstrapping
 * var_effect.csv --> effect size of variables obtained from final models
+  
 
 ### Figures
 
