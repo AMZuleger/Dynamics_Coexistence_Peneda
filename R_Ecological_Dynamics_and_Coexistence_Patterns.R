@@ -7,8 +7,6 @@
 
 set.seed(123)
 
-## Double check which packages are actually used
-
 library(tidyr)
 library(psych)
 library(unmarked)
@@ -18,7 +16,16 @@ library(reshape)
 library(MASS)
 library(gridExtra)
 
-setwd("C:/Users/az66lozy/Documents/Dynamics_Coexistence_Peneda/Data")
+#### Load required data from GitHub
+
+t <- tempdir()
+setwd(t)
+
+url <- "https://github.com/AMZuleger/Dynamics_Coexistence_Peneda/archive/refs/heads/main.zip"
+download.file(url,destfile="Dynamics_Coexistence_Peneda-main.zip")
+unzip(zipfile="Dynamics_Coexistence_Peneda-main.zip")
+
+setwd(dir = file.path(t,"Dynamics_Coexistence_Peneda-main/Data"))
 
 ## Site covariates for season 1 (2015)
 
@@ -229,7 +236,7 @@ for(psi in 1:length(psi_formulas)) {
 
 ########### Automated model selection #############
 
-setwd("C:/Users/az66lozy/Documents/Dynamics_Coexistence_Peneda/Results")
+setwd(dir = file.path(t,"Dynamics_Coexistence_Peneda-main/Results"))
 
 # Run models parallel on several cores because otherwise it will take forever # 
 
@@ -1068,7 +1075,7 @@ summary(ibex_int_final)
 
 ############################################## Create figures ########################################################
 
-setwd("C:/Users/az66lozy/Documents/Dynamics_Coexistence_Peneda/Figures")
+setwd(dir = file.path(t,"Dynamics_Coexistence_Peneda-main/Figures"))
 
 ###### Figure 3. Occupancy trends ######
 
