@@ -8,6 +8,9 @@ The issue of agricultural land abandonment in Southern Europe has raised concern
 
 ## Structure
 * R_Ecological_Dynamics_and_Coexistence_Patterns.R --> R Script to perform all analysis from the publication
+* This is the only file needed to perform the entire analysis. Code will automaticall download data from GitHub and produce all Results and Figures provided in the subfolders.
+
+*  
 
 ### Data
 
