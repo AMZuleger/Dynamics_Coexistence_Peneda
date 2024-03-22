@@ -19,8 +19,9 @@ library(gridExtra)
 #### Load required data from GitHub
 
 t <- tempdir()
-setwd(t)
+setwd(t) # set temporal wd
 
+# download data from github
 url <- "https://github.com/AMZuleger/Dynamics_Coexistence_Peneda/archive/refs/heads/main.zip"
 download.file(url,destfile="Dynamics_Coexistence_Peneda-main.zip")
 unzip(zipfile="Dynamics_Coexistence_Peneda-main.zip")
@@ -82,22 +83,19 @@ summary(umfm_cattle)
 
 ### Detection probability 
 
-fm_cattle_p_global <- colext(~1, ~1, ~1, ~scale(year)+scale(Sensitivity)+scale(Temp_min)+scale(Rad_max)+scale(Rain_sum)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_cattle)
+fm_cattle_p_global <- colext(~1, ~1, ~1, ~scale(Sensitivity)+scale(Temp_min)+scale(Rad_max)+scale(Rain_sum)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_cattle)
 summary(fm_cattle_p_global)
 
-fm_cattle_p_1 <- colext(~1, ~1, ~1, ~scale(year)+scale(Sensitivity)+scale(Rad_max)+scale(Rain_sum)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_cattle)
+fm_cattle_p_1 <- colext(~1, ~1, ~1, ~scale(Sensitivity)+scale(Temp_min)+scale(Rad_max)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_cattle)
 summary(fm_cattle_p_1)
 
-fm_cattle_p_2 <- colext(~1, ~1, ~1, ~scale(year)+scale(Sensitivity)+scale(Rad_max)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_cattle)
+fm_cattle_p_2 <- colext(~1, ~1, ~1, ~scale(Sensitivity)+scale(Temp_min)+scale(Rad_max)+scale(HighShrub)+scale(LowShrub), umfm_cattle)
 summary(fm_cattle_p_2)
 
-fm_cattle_p_3 <- colext(~1, ~1, ~1, ~scale(year)+scale(Sensitivity)+scale(Rad_max)+scale(HighShrub)+scale(LowShrub), umfm_cattle)
+fm_cattle_p_3 <- colext(~1, ~1, ~1, ~scale(Sensitivity)+scale(Rad_max)+scale(HighShrub)+scale(LowShrub), umfm_cattle)
 summary(fm_cattle_p_3)
 
-fm_cattle_p_3 <- colext(~1, ~1, ~1, ~scale(year)+scale(Sensitivity)+scale(Rad_max)+scale(LowShrub), umfm_cattle)
-summary(fm_cattle_p_3)
-
-# Year, Sensitivity, Radiation, Low shrub
+# Sensitivity, Radiation, High Shrub & Low shrub
 
 ### Occupancy
 
@@ -170,7 +168,7 @@ summary(fm_cattle_ext_3)
 psi_vars <- c("scale(HighShrub)")
 gamma_vars <- c("scale(OakForest)")
 epsilon_vars <- c("scale(CostDist_road)","scale(CostDist_water)","scale(OakForest)","scale(HighShrub)","scale(LowShrub)","scale(Urban)")
-p_vars <- c("scale(year)","scale(Sensitivity)","scale(Rad_max)","scale(Temp_min)","scale(HighShrub)","scale(LowShrub)","scale(OakForest)")
+p_vars <- c("scale(Sensitivity)","scale(Rad_max)","scale(Temp_min)","scale(HighShrub)","scale(LowShrub)","scale(OakForest)")
 
 psi_formulas <- list()
 for (i in seq_along(psi_vars)) {
@@ -238,13 +236,13 @@ for(psi in 1:length(psi_formulas)) {
 
 setwd(dir = file.path(t,"Dynamics_Coexistence_Peneda-main/Results"))
 
-# Run models parallel on several cores because otherwise it will take forever # 
+# Run models parallel on several cores because otherwise it will take forever #
 
 library(parallel)
 library(doParallel)
 
-detectCores() 
-workers=makeCluster(50)
+detectCores() # number of cores available
+workers=makeCluster(50) # set number of cores used for analysis
 registerDoParallel(workers)
 getDoParWorkers()
 
@@ -258,42 +256,45 @@ summary(umfm_cattle)
 fm_cattle_global <- colext(~scale(HighShrub),
                            ~scale(OakForest),
                            ~scale(CostDist_road)+scale(CostDist_water)+scale(OakForest)+scale(HighShrub)+scale(LowShrub)+scale(Urban),
-                           ~scale(year)+scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_cattle)
+                           ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_cattle)
 
 summary(fm_cattle_global)
 
 #### Test goodness of fit of the global model to correct for overdispersion if necessary ####
 
-gof_cattle_global <- mb.gof.test(fm_cattle_global, plot.hist=FALSE,nsim=10)
+gof_cattle_global <- mb.gof.test(fm_cattle_global, plot.hist=FALSE,nsim=1000)
 gof_cattle_global
 chat <- gof_cattle_global$c.hat.est
 n <- 16
 
 #### Run every possible model combination and estimate AIC / QAIC (based on c-hat value from goodness of fit test) ####
 
+# Code is commented as without several cores it will take too long
+# If several cores are not available skip to line 298
+
 # models_cattle <- foreach(x = 1:nrow(models_all), .combine='rbind') %dopar% {
-#   fm_cattle <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_cattle)
-#   k <- AICcmodavg::AICc(fm_cattle,return.K=TRUE)
-#   if(chat > 1) {k <- k +1}
-#   LogLike <- unmarked::logLik(fm_cattle)
-#   c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_cattle@AIC, QAIC=(-2*LogLike/chat)+(2*k))
-# }
+#    fm_cattle <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_cattle)
+#    k <- AICcmodavg::AICc(fm_cattle,return.K=TRUE)
+#    if(chat > 1) {k <- k +1}
+#    LogLike <- unmarked::logLik(fm_cattle)
+#    c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_cattle@AIC, QAIC=(-2*LogLike/chat)+(2*k))
+#  }
 # 
+# models_cattle <- as.data.frame(models_cattle,stringsAsFactors = FALSE) 
 # names(models_cattle) <- c("psi_formula","gamma_formula","epsilon_formula","p_formula","AIC","QAIC")
 # if(chat<1) {models_cattle$QAIC <- models_cattle$AIC}
-# models_cattle <- as.data.frame(models_cattle,stringsAsFactors = FALSE)
 # models_cattle$AIC <- as.numeric(models_cattle$AIC)
 # models_cattle$QAIC <- as.numeric(models_cattle$QAIC)
+#  
+# write.table(models_cattle, "models_cattle.csv",sep=";",dec=".",row.names=F,col.names=T)
 # 
-# #write.table(models_cattle, "models_cattle.csv",sep=";",dec=".",row.names=F,col.names=T)
-
-#### Create best model based on AIC / QAIC ####
-
+# #### Create best model based on AIC / QAIC ####
+# 
 # best_model_QAIC_cattle <- models_cattle[models_cattle$QAIC == min(models_cattle$QAIC),]
-# 
+#  
 # fm_cattle_best_QAIC <- colext(psiformula = as.formula(best_model_QAIC_cattle$psi_formula), gammaformula = as.formula(best_model_QAIC_cattle$gamma_formula), epsilonformula = as.formula(best_model_QAIC_cattle$epsilon_formula), pformula = as.formula(best_model_QAIC_cattle$p_formula), umfm_cattle)
 # summary(fm_cattle_best_QAIC)
-
+#  
 fm_cattle_best_QAIC <- colext(~1, ~scale(OakForest), ~scale(CostDist_road)+scale(OakForest)+scale(HighShrub)+scale(LowShrub),~scale(Sensitivity)+scale(Rad_max)+scale(HighShrub)+scale(LowShrub), umfm_cattle)
 summary(fm_cattle_best_QAIC)
 
@@ -336,7 +337,7 @@ variables_cattle[9,10] <- SE(backTransform(linearComb(fm_cattle_best_QAIC,c(1,0,
 
 #### Get occupancy estimates for the whole study area with non-parametric bootstrapping ####
 
-m3 <- nonparboot(fm_cattle_best_QAIC,B = 10)
+m3 <- nonparboot(fm_cattle_best_QAIC,B = 1000)
 occ_pred_cattle_best_QAIC <- data.frame(year = c(2015:2022),
                                         smoothed_occ = smoothed(fm_cattle_best_QAIC)[2,],
                                         SE = m3@smoothed.mean.bsse[2,])
@@ -368,44 +369,42 @@ summary(umfm_horse)
 fm_horse_global <- colext(~scale(HighShrub),
                            ~scale(OakForest),
                            ~scale(CostDist_road)+scale(CostDist_water)+scale(OakForest)+scale(HighShrub)+scale(LowShrub)+scale(Urban),
-                           ~scale(year)+scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_horse)
+                           ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_horse)
 
 summary(fm_horse_global)
 
 #### Test goodness of fit of the global model to correct for overdispersion if necessary ####
 
-gof_horse_global <- mb.gof.test(fm_horse_global, plot.hist=FALSE,nsim=10)
+gof_horse_global <- mb.gof.test(fm_horse_global, plot.hist=FALSE,nsim=1000)
 gof_horse_global
 chat <- gof_horse_global$c.hat.est
-n <- 16
 
 #### Run every possible model combination and estimate AIC / QAIC (based on c-hat value from goodness of fit test) ####
 
 # models_horse <- foreach(x = 1:nrow(models_all), .combine='rbind') %dopar% {
-#   fm_horse <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_horse)
-#   k <- AICcmodavg::AICc(fm_horse,return.K=TRUE)
-#   if(chat > 1) {k <- k +1}
-#   LogLike <- unmarked::logLik(fm_horse)
-#   c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_horse@AIC, QAIC=(-2*LogLike/chat)+(2*k))
+#    fm_horse <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_horse)
+#    k <- AICcmodavg::AICc(fm_horse,return.K=TRUE)
+#    if(chat > 1) {k <- k +1}
+#    LogLike <- unmarked::logLik(fm_horse)
+#    c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_horse@AIC, QAIC=(-2*LogLike/chat)+(2*k))
 # }
 # 
+# models_horse <- as.data.frame(models_horse,stringsAsFactors = FALSE)
 # names(models_horse) <- c("psi_formula","gamma_formula","epsilon_formula","p_formula","AIC","QAIC")
 # if(chat<1) {models_horse$QAIC <- models_horse$AIC}
-# models_horse <- as.data.frame(models_horse,stringsAsFactors = FALSE)
 # models_horse$AIC <- as.numeric(models_horse$AIC)
 # models_horse$QAIC <- as.numeric(models_horse$QAIC)
 # 
 # #write.table(models_horse, "models_horse.csv",sep=";",dec=".",row.names=F,col.names=T)
-
-#### Create best model based on AIC / QAIC ####
-
-# best_model_AIC_horse <- models_horse[models_horse$AIC == min(models_horse$AIC),]
+# 
+# #### Create best model based on AIC / QAIC ####
+# 
 # best_model_QAIC_horse <- models_horse[models_horse$QAIC == min(models_horse$QAIC),]
 # 
-# fm_horse_best_AIC <- colext(psiformula = as.formula(best_model_AIC_horse$psi_formula), gammaformula = as.formula(best_model_AIC_horse$gamma_formula), epsilonformula = as.formula(best_model_AIC_horse$epsilon_formula), pformula = as.formula(best_model_AIC_horse$p_formula), umfm_horse)
+# fm_horse_best_QAIC <- colext(psiformula = as.formula(best_model_QAIC_horse$psi_formula), gammaformula = as.formula(best_model_QAIC_horse$gamma_formula), epsilonformula = as.formula(best_model_QAIC_horse$epsilon_formula), pformula = as.formula(best_model_QAIC_horse$p_formula), umfm_horse)
 # summary(fm_horse_best_QAIC)
 
-fm_horse_best_AIC <- colext(~1, ~scale(OakForest), ~scale(LowShrub)+scale(Urban), ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(OakForest)+scale(HighShrub)+scale(LowShrub), umfm_horse)
+fm_horse_best_QAIC <- colext(~1, ~scale(OakForest), ~scale(LowShrub)+scale(Urban), ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(OakForest)+scale(HighShrub)+scale(LowShrub), umfm_horse)
 summary(fm_horse_best_AIC)
 
 #### Backtransform model estimates from logit scale (keeping Intercept at 1) ####
@@ -415,50 +414,50 @@ colnames(variables_horse) <- c("Species","Variable","Occupancy","Occ_SE","Coloni
 variables_horse$Species <- "Domestic horse"
 variables_horse$Variable <- c("Intercept", "Sensitivity","Rad_max","Temp_min","CostDist_road","CostDist_water","OakForest","HighShrub","LowShrub","Urban")
 
-variables_horse[1,3] <- backTransform(fm_horse_best_AIC,type="psi")@estimate
-variables_horse[1,4] <- SE(backTransform(fm_horse_best_AIC,type="psi"))
+variables_horse[1,3] <- backTransform(fm_horse_best_QAIC,type="psi")@estimate
+variables_horse[1,4] <- SE(backTransform(fm_horse_best_QAIC,type="psi"))
 
-variables_horse[1,5] <- backTransform(linearComb(fm_horse_best_AIC,c(1,0),type="col"))@estimate
-variables_horse[1,6] <- SE(backTransform(linearComb(fm_horse_best_AIC,c(1,0),type="col")))
-variables_horse[7,5] <- backTransform(linearComb(fm_horse_best_AIC,c(1,1),type="col"))@estimate
-variables_horse[7,6] <- SE(backTransform(linearComb(fm_horse_best_AIC,c(1,1),type="col")))
+variables_horse[1,5] <- backTransform(linearComb(fm_horse_best_QAIC,c(1,0),type="col"))@estimate
+variables_horse[1,6] <- SE(backTransform(linearComb(fm_horse_best_QAIC,c(1,0),type="col")))
+variables_horse[7,5] <- backTransform(linearComb(fm_horse_best_QAIC,c(1,1),type="col"))@estimate
+variables_horse[7,6] <- SE(backTransform(linearComb(fm_horse_best_QAIC,c(1,1),type="col")))
 
-variables_horse[1,7] <- backTransform(linearComb(fm_horse_best_AIC,c(1,0,0),type="ext"))@estimate
-variables_horse[1,8] <- SE(backTransform(linearComb(fm_horse_best_AIC,c(1,0,0),type="ext")))
-variables_horse[9,7] <- backTransform(linearComb(fm_horse_best_AIC,c(1,1,0),type="ext"))@estimate
-variables_horse[9,8] <- SE(backTransform(linearComb(fm_horse_best_AIC,c(1,1,0),type="ext")))
-variables_horse[10,7] <- backTransform(linearComb(fm_horse_best_AIC,c(1,0,1),type="ext"))@estimate
-variables_horse[10,8] <- SE(backTransform(linearComb(fm_horse_best_AIC,c(1,0,1),type="ext")))
+variables_horse[1,7] <- backTransform(linearComb(fm_horse_best_QAIC,c(1,0,0),type="ext"))@estimate
+variables_horse[1,8] <- SE(backTransform(linearComb(fm_horse_best_QAIC,c(1,0,0),type="ext")))
+variables_horse[9,7] <- backTransform(linearComb(fm_horse_best_QAIC,c(1,1,0),type="ext"))@estimate
+variables_horse[9,8] <- SE(backTransform(linearComb(fm_horse_best_QAIC,c(1,1,0),type="ext")))
+variables_horse[10,7] <- backTransform(linearComb(fm_horse_best_QAIC,c(1,0,1),type="ext"))@estimate
+variables_horse[10,8] <- SE(backTransform(linearComb(fm_horse_best_QAIC,c(1,0,1),type="ext")))
 
-variables_horse[1,9] <- backTransform(linearComb(fm_horse_best_AIC,c(1,0,0,0,0,0,0),type="det"))@estimate
-variables_horse[1,10] <- SE(backTransform(linearComb(fm_horse_best_AIC,c(1,0,0,0,0,0,0),type="det")))
-variables_horse[2,9] <- backTransform(linearComb(fm_horse_best_AIC,c(1,1,0,0,0,0,0),type="det"))@estimate
-variables_horse[2,10] <- SE(backTransform(linearComb(fm_horse_best_AIC,c(1,1,0,0,0,0,0),type="det")))
-variables_horse[3,9] <- backTransform(linearComb(fm_horse_best_AIC,c(1,0,1,0,0,0,0),type="det"))@estimate
-variables_horse[3,10] <- SE(backTransform(linearComb(fm_horse_best_AIC,c(1,0,1,0,0,0,0),type="det")))
-variables_horse[4,9] <- backTransform(linearComb(fm_horse_best_AIC,c(1,0,0,1,0,0,0),type="det"))@estimate
-variables_horse[4,10] <- SE(backTransform(linearComb(fm_horse_best_AIC,c(1,0,0,1,0,0,0),type="det")))
-variables_horse[7,9] <- backTransform(linearComb(fm_horse_best_AIC,c(1,0,0,0,1,0,0),type="det"))@estimate
-variables_horse[7,10] <- SE(backTransform(linearComb(fm_horse_best_AIC,c(1,0,0,0,1,0,0),type="det")))
-variables_horse[8,9] <- backTransform(linearComb(fm_horse_best_AIC,c(1,0,0,0,0,1,0),type="det"))@estimate
-variables_horse[8,10] <- SE(backTransform(linearComb(fm_horse_best_AIC,c(1,0,0,0,0,1,0),type="det")))
-variables_horse[9,9] <- backTransform(linearComb(fm_horse_best_AIC,c(1,0,0,0,0,0,1),type="det"))@estimate
-variables_horse[9,10] <- SE(backTransform(linearComb(fm_horse_best_AIC,c(1,0,0,0,0,0,1),type="det")))
+variables_horse[1,9] <- backTransform(linearComb(fm_horse_best_QAIC,c(1,0,0,0,0,0,0),type="det"))@estimate
+variables_horse[1,10] <- SE(backTransform(linearComb(fm_horse_best_QAIC,c(1,0,0,0,0,0,0),type="det")))
+variables_horse[2,9] <- backTransform(linearComb(fm_horse_best_QAIC,c(1,1,0,0,0,0,0),type="det"))@estimate
+variables_horse[2,10] <- SE(backTransform(linearComb(fm_horse_best_QAIC,c(1,1,0,0,0,0,0),type="det")))
+variables_horse[3,9] <- backTransform(linearComb(fm_horse_best_QAIC,c(1,0,1,0,0,0,0),type="det"))@estimate
+variables_horse[3,10] <- SE(backTransform(linearComb(fm_horse_best_QAIC,c(1,0,1,0,0,0,0),type="det")))
+variables_horse[4,9] <- backTransform(linearComb(fm_horse_best_QAIC,c(1,0,0,1,0,0,0),type="det"))@estimate
+variables_horse[4,10] <- SE(backTransform(linearComb(fm_horse_best_QAIC,c(1,0,0,1,0,0,0),type="det")))
+variables_horse[7,9] <- backTransform(linearComb(fm_horse_best_QAIC,c(1,0,0,0,1,0,0),type="det"))@estimate
+variables_horse[7,10] <- SE(backTransform(linearComb(fm_horse_best_QAIC,c(1,0,0,0,1,0,0),type="det")))
+variables_horse[8,9] <- backTransform(linearComb(fm_horse_best_QAIC,c(1,0,0,0,0,1,0),type="det"))@estimate
+variables_horse[8,10] <- SE(backTransform(linearComb(fm_horse_best_QAIC,c(1,0,0,0,0,1,0),type="det")))
+variables_horse[9,9] <- backTransform(linearComb(fm_horse_best_QAIC,c(1,0,0,0,0,0,1),type="det"))@estimate
+variables_horse[9,10] <- SE(backTransform(linearComb(fm_horse_best_QAIC,c(1,0,0,0,0,0,1),type="det")))
 
 #### Get occupancy estimates for the whole study area with non-parametric bootstrapping ####
 
-m3 <- nonparboot(fm_horse_best_AIC,B = 10)
-occ_pred_horse_best_AIC <- data.frame(year = c(2015:2022),
-                                        smoothed_occ = smoothed(fm_horse_best_AIC)[2,],
+m3 <- nonparboot(fm_horse_best_QAIC,B = 1000)
+occ_pred_horse_best_QAIC <- data.frame(year = c(2015:2022),
+                                        smoothed_occ = smoothed(fm_horse_best_QAIC)[2,],
                                         SE = m3@smoothed.mean.bsse[2,])
-occ_pred_horse_best_AIC$Species <- 'Domestic horse'
+occ_pred_horse_best_QAIC$Species <- 'Domestic horse'
 
-horse_year <- lm(smoothed_occ ~ year, occ_pred_horse_best_AIC)
+horse_year <- lm(smoothed_occ ~ year, occ_pred_horse_best_QAIC)
 summary(horse_year)
 
 #### Get site-specific occupancy estimates obtained from model output ####
 
-occ_horse_site <- data.frame(t(fm_horse_best_AIC@smoothed[2, , ]))
+occ_horse_site <- data.frame(t(fm_horse_best_QAIC@smoothed[2, , ]))
 colnames(occ_horse_site) <- unique(yearlySiteCovs(umfm_horse)$year)
 occ_horse_site$grid <- unique(Horse$grid) 
 
@@ -479,37 +478,36 @@ summary(umfm_deer)
 fm_deer_global <- colext(~scale(HighShrub),
                           ~scale(OakForest),
                           ~scale(CostDist_road)+scale(CostDist_water)+scale(OakForest)+scale(HighShrub)+scale(LowShrub)+scale(Urban),
-                          ~scale(year)+scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_deer)
+                          ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_deer)
 
 #### Test goodness of fit of the global model to correct for overdispersion if necessary ####
 
-gof_deer_global <- mb.gof.test(fm_deer_global, plot.hist=FALSE,nsim=10)
+gof_deer_global <- mb.gof.test(fm_deer_global, plot.hist=FALSE,nsim=1000)
 gof_deer_global
 chat <- gof_deer_global$c.hat.est
-n <- 16
 
 #### Run every possible model combination and estimate AIC / QAIC (based on c-hat value from goodness of fit test) ####
 
 # models_deer <- foreach(x = 1:nrow(models_all), .combine='rbind') %dopar% {
-#   fm_deer <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_deer)
-#   k <- AICcmodavg::AICc(fm_deer,return.K=TRUE)
-#   if(chat > 1) {k <- k +1}
-#   LogLike <- unmarked::logLik(fm_deer)
-#   c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_deer@AIC, QAIC=(-2*LogLike/chat)+(2*k))
+#  fm_deer <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_deer)
+#  k <- AICcmodavg::AICc(fm_deer,return.K=TRUE)
+#  if(chat > 1) {k <- k +1}
+#  LogLike <- unmarked::logLik(fm_deer)
+#  c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_deer@AIC, QAIC=(-2*LogLike/chat)+(2*k))
 # }
 # 
+# models_deer <- as.data.frame(models_deer,stringsAsFactors = FALSE) 
 # names(models_deer) <- c("psi_formula","gamma_formula","epsilon_formula","p_formula","AIC","QAIC")
 # if(chat<1) {models_deer$QAIC <- models_deer$AIC}
-# models_deer <- as.data.frame(models_deer,stringsAsFactors = FALSE)
 # models_deer$AIC <- as.numeric(models_deer$AIC)
 # models_deer$QAIC <- as.numeric(models_deer$QAIC)
-# 
+#  
 # #write.table(models_deer, "models_deer.csv",sep=";",dec=".",row.names=F,col.names=T)
-
-#### Create best model based on AIC / QAIC ####
-
-# best_model_QAIC_deer <- models_deer[models_deer$QAIC == min(models_deer$QAIC),]
 # 
+# #### Create best model based on AIC / QAIC ####
+# 
+# best_model_QAIC_deer <- models_deer[models_deer$QAIC == min(models_deer$QAIC),]
+#  
 # fm_deer_best_QAIC <- colext(psiformula = as.formula(best_model_QAIC_deer$psi_formula), gammaformula = as.formula(best_model_QAIC_deer$gamma_formula), epsilonformula = as.formula(best_model_QAIC_deer$epsilon_formula), pformula = as.formula(best_model_QAIC_deer$p_formula), umfm_deer)
 # summary(fm_deer_best_QAIC)
 
@@ -547,7 +545,7 @@ variables_deer[9,10] <- SE(backTransform(linearComb(fm_deer_best_QAIC,c(1,0,0,0,
 
 #### Get occupancy estimates for the whole study area with non-parametric bootstrapping ####
 
-m3 <- nonparboot(fm_deer_best_QAIC,B = 10)
+m3 <- nonparboot(fm_deer_best_QAIC,B = 1000)
 occ_pred_deer_best_QAIC <- data.frame(year = c(2015:2022),
                                        smoothed_occ = smoothed(fm_deer_best_QAIC)[2,],
                                        SE = m3@smoothed.mean.bsse[2,])
@@ -579,38 +577,36 @@ summary(umfm_boar)
 fm_boar_global <- colext(~scale(HighShrub),
                          ~scale(OakForest),
                          ~scale(CostDist_road)+scale(CostDist_water)+scale(OakForest)+scale(HighShrub)+scale(LowShrub)+scale(Urban),
-                         ~scale(year)+scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_boar)
+                         ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_boar)
 
 #### Test goodness of fit of the global model to correct for overdispersion if necessary ####
 
-gof_boar_global <- mb.gof.test(fm_boar_global, plot.hist=FALSE,nsim=10)
+gof_boar_global <- mb.gof.test(fm_boar_global, plot.hist=FALSE,nsim=1000)
 gof_boar_global
 chat <- gof_boar_global$c.hat.est
-n <- 16
 
 #### Run every possible model combination and estimate AIC / QAIC (based on c-hat value from goodness of fit test) ####
 
-
 # models_boar <- foreach(x = 1:nrow(models_all), .combine='rbind') %dopar% {
-#   fm_boar <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_boar)
-#   k <- AICcmodavg::AICc(fm_boar,return.K=TRUE)
-#   if(chat > 1) {k <- k +1}
-#   LogLike <- unmarked::logLik(fm_boar)
-#   c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_boar@AIC, QAIC=(-2*LogLike/chat)+(2*k))
+#  fm_boar <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_boar)
+#  k <- AICcmodavg::AICc(fm_boar,return.K=TRUE)
+#  if(chat > 1) {k <- k +1}
+#  LogLike <- unmarked::logLik(fm_boar)
+#  c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_boar@AIC, QAIC=(-2*LogLike/chat)+(2*k))
 # }
 # 
+# models_boar <- as.data.frame(models_boar,stringsAsFactors = FALSE) 
 # names(models_boar) <- c("psi_formula","gamma_formula","epsilon_formula","p_formula","AIC","QAIC")
 # if(chat<1) {models_boar$QAIC <- models_boar$AIC}
-# models_boar <- as.data.frame(models_boar,stringsAsFactors = FALSE)
 # models_boar$AIC <- as.numeric(models_boar$AIC)
 # models_boar$QAIC <- as.numeric(models_boar$QAIC)
-# 
+#  
 # #write.table(models_boar, "models_boar.csv",sep=";",dec=".",row.names=F,col.names=T)
-
-#### Create best model based on AIC / QAIC ####
-
-# best_model_QAIC_boar <- models_boar[models_boar$QAIC == min(models_boar$QAIC),]
 # 
+# #### Create best model based on AIC / QAIC ####
+# 
+# best_model_QAIC_boar <- models_boar[models_boar$QAIC == min(models_boar$QAIC),]
+#  
 # fm_boar_best_QAIC <- colext(psiformula = as.formula(best_model_QAIC_boar$psi_formula), gammaformula = as.formula(best_model_QAIC_boar$gamma_formula), epsilonformula = as.formula(best_model_QAIC_boar$epsilon_formula), pformula = as.formula(best_model_QAIC_boar$p_formula), umfm_boar)
 # summary(fm_boar_best_QAIC)
 
@@ -645,7 +641,7 @@ variables_boar[7,10] <- SE(backTransform(linearComb(fm_boar_best_QAIC,c(1,0,1),t
 
 #### Get occupancy estimates for the whole study area with non-parametric bootstrapping ####
 
-m3 <- nonparboot(fm_boar_best_QAIC,B = 10)
+m3 <- nonparboot(fm_boar_best_QAIC,B = 1000)
 occ_pred_boar_best_QAIC <- data.frame(year = c(2015:2022),
                                       smoothed_occ = smoothed(fm_boar_best_QAIC)[2,],
                                       SE = m3@smoothed.mean.bsse[2,])
@@ -677,44 +673,43 @@ summary(umfm_fox)
 fm_fox_global <- colext(~scale(HighShrub),
                          ~scale(OakForest),
                          ~scale(CostDist_road)+scale(CostDist_water)+scale(OakForest)+scale(HighShrub)+scale(LowShrub)+scale(Urban),
-                         ~scale(year)+scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_fox)
+                         ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_fox)
 
 #### Test goodness of fit of the global model to correct for overdispersion if necessary ####
 
-gof_fox_global <- mb.gof.test(fm_fox_global, plot.hist=FALSE,nsim=10)
+gof_fox_global <- mb.gof.test(fm_fox_global, plot.hist=FALSE,nsim=1000)
 gof_fox_global
 chat <- gof_fox_global$c.hat.est
-n <- 16
 
 #### Run every possible model combination and estimate AIC / QAIC (based on c-hat value from goodness of fit test) ####
 
 # models_fox <- foreach(x = 1:nrow(models_all), .combine='rbind') %dopar% {
-#   fm_fox <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_fox)
-#   k <- AICcmodavg::AICc(fm_fox,return.K=TRUE)
-#   if(chat > 1) {k <- k +1}
-#   LogLike <- unmarked::logLik(fm_fox)
-#   c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_fox@AIC, QAIC=(-2*LogLike/chat)+(2*k))
+#  fm_fox <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_fox)
+#  k <- AICcmodavg::AICc(fm_fox,return.K=TRUE)
+#  if(chat > 1) {k <- k +1}
+#  LogLike <- unmarked::logLik(fm_fox)
+#  c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_fox@AIC, QAIC=(-2*LogLike/chat)+(2*k))
 # }
 # 
+# models_fox <- as.data.frame(models_fox,stringsAsFactors = FALSE) 
 # names(models_fox) <- c("psi_formula","gamma_formula","epsilon_formula","p_formula","AIC","QAIC")
 # if(chat<1) {models_fox$QAIC <- models_fox$AIC}
-# models_fox <- as.data.frame(models_fox,stringsAsFactors = FALSE)
 # models_fox$AIC <- as.numeric(models_fox$AIC)
 # models_fox$QAIC <- as.numeric(models_fox$QAIC)
-# 
+#  
 # #write.table(models_fox, "models_fox.csv",sep=";",dec=".",row.names=F,col.names=T)
-
-#### Create best model based on AIC / QAIC ####
-
-# best_model_QAIC_fox <- models_fox[models_fox$QAIC == min(models_fox$QAIC),]
 # 
+# #### Create best model based on AIC / QAIC ####
+# 
+# best_model_QAIC_fox <- models_fox[models_fox$QAIC == min(models_fox$QAIC),]
+#  
 # fm_fox_best_QAIC <- colext(psiformula = as.formula(best_model_QAIC_fox$psi_formula), gammaformula = as.formula(best_model_QAIC_fox$gamma_formula), epsilonformula = as.formula(best_model_QAIC_fox$epsilon_formula), pformula = as.formula(best_model_QAIC_fox$p_formula), umfm_fox)
 # summary(fm_fox_best_QAIC)
 
 fm_fox_best_QAIC <- colext(~1, ~1, ~1, ~scale(Sensitivity)+scale(OakForest)+scale(LowShrub), umfm_fox)
 summary(fm_fox_best_QAIC)
 # NaNs produced --> potential convergence issues --> simplify model
-# OakForest has lowest effect
+# OakForest has lowest effect -> remove OakForest
 k <- AICcmodavg::AICc(fm_fox_best_QAIC,return.K=TRUE)
 (-2*logLik(fm_fox_best_QAIC)/chat)+(2*k)
 
@@ -725,10 +720,6 @@ k <- AICcmodavg::AICc(fm_fox_best_QAIC,return.K=TRUE)
 (-2*logLik(fm_fox_best_QAIC)/chat)+(2*k)
 # QAIC is very close to QAIC from original model
 
-# fm_fox_best_QAIC <- colext(~1, ~1, ~1, ~scale(Sensitivity)+scale(OakForest), umfm_fox)
-# #summary(fm_fox_best_QAIC)
-# k <- AICcmodavg::AICc(fm_fox_best_QAIC,return.K=TRUE)
-# (-2*logLik(fm_fox_best_QAIC)/chat)+(2*k)
 
 #### Backtransform model estimates from logit scale (keeping Intercept at 1) ####
 
@@ -756,7 +747,7 @@ variables_fox[9,10] <- SE(backTransform(linearComb(fm_fox_best_QAIC,c(1,0,1),typ
 
 #### Get occupancy estimates for the whole study area with non-parametric bootstrapping ####
 
-m3 <- nonparboot(fm_fox_best_QAIC,B = 10)
+m3 <- nonparboot(fm_fox_best_QAIC,B = 1000)
 occ_pred_fox_best_QAIC <- data.frame(year = c(2015:2022),
                                       smoothed_occ = smoothed(fm_fox_best_QAIC)[2,],
                                       SE = m3@smoothed.mean.bsse[2,])
@@ -788,51 +779,50 @@ summary(umfm_wolf)
 fm_wolf_global <- colext(~scale(HighShrub),
                         ~scale(OakForest),
                         ~scale(CostDist_road)+scale(CostDist_water)+scale(OakForest)+scale(HighShrub)+scale(LowShrub)+scale(Urban),
-                        ~scale(year)+scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_wolf)
+                        ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_wolf)
 
 #### Test goodness of fit of the global model to correct for overdispersion if necessary ####
 
-gof_wolf_global <- mb.gof.test(fm_wolf_global, plot.hist=FALSE,nsim=10)
+gof_wolf_global <- mb.gof.test(fm_wolf_global, plot.hist=FALSE,nsim=1000)
 gof_wolf_global
 chat <- gof_wolf_global$c.hat.est
-n <- 16
 
 #### Run every possible model combination and estimate AIC / QAIC (based on c-hat value from goodness of fit test) ####
 
 # models_wolf <- foreach(x = 1:nrow(models_all), .combine='rbind') %dopar% {
-#   fm_wolf <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_wolf)
-#   k <- AICcmodavg::AICc(fm_wolf,return.K=TRUE)
-#   if(chat > 1) {k <- k +1}
-#   LogLike <- unmarked::logLik(fm_wolf)
-#   c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_wolf@AIC, QAIC=(-2*LogLike/chat)+(2*k))
+#  fm_wolf <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_wolf)
+#  k <- AICcmodavg::AICc(fm_wolf,return.K=TRUE)
+#  if(chat > 1) {k <- k +1}
+#  LogLike <- unmarked::logLik(fm_wolf)
+#  c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_wolf@AIC, QAIC=(-2*LogLike/chat)+(2*k))
 # }
 # 
+# models_wolf <- as.data.frame(models_wolf,stringsAsFactors = FALSE) 
 # names(models_wolf) <- c("psi_formula","gamma_formula","epsilon_formula","p_formula","AIC","QAIC")
 # if(chat<1) {models_wolf$QAIC <- models_wolf$AIC}
-# models_wolf <- as.data.frame(models_wolf,stringsAsFactors = FALSE)
 # models_wolf$AIC <- as.numeric(models_wolf$AIC)
 # models_wolf$QAIC <- as.numeric(models_wolf$QAIC)
-# 
+#  
 # #write.table(models_wolf, "models_wolf.csv",sep=";",dec=".",row.names=F,col.names=T)
-
-#### Create best model based on AIC / QAIC ####
-
-# best_model_AIC_wolf <- models_wolf[models_wolf$AIC == min(models_wolf$AIC),]
 # 
-# fm_wolf_best_AIC <- colext(psiformula = as.formula(best_model_AIC_wolf$psi_formula), gammaformula = as.formula(best_model_AIC_wolf$gamma_formula), epsilonformula = as.formula(best_model_AIC_wolf$epsilon_formula), pformula = as.formula(best_model_AIC_wolf$p_formula), umfm_wolf)
-# summary(fm_wolf_best_AIC)
+# #### Create best model based on AIC / QAIC ####
+# 
+# best_model_QAIC_wolf <- models_wolf[models_wolf$AIC == min(models_wolf$QAIC),]
+#  
+# fm_wolf_best_QAIC <- colext(psiformula = as.formula(best_model_QAIC_wolf$psi_formula), gammaformula = as.formula(best_model_QAIC_wolf$gamma_formula), epsilonformula = as.formula(best_model_QAIC_wolf$epsilon_formula), pformula = as.formula(best_model_QAIC_wolf$p_formula), umfm_wolf)
+# summary(fm_wolf_best_QAIC)
 
-fm_wolf_best_AIC <- colext(~1, ~1, ~scale(CostDist_water)+scale(OakForest)+scale(HighShrub)+scale(LowShrub)+scale(Urban), ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub), umfm_wolf)
-summary(fm_wolf_best_AIC)
+fm_wolf_best_QAIC <- colext(~1, ~1, ~scale(CostDist_water)+scale(OakForest)+scale(HighShrub)+scale(LowShrub)+scale(Urban), ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub), umfm_wolf)
+summary(fm_wolf_best_QAIC)
 # Convergence issues --> unreasonable estimates for extinction (especially urban)
-k <- AICcmodavg::AICc(fm_wolf_best_AIC,return.K=TRUE)
-(-2*logLik(fm_wolf_best_AIC)/chat)+(2*k)
+k <- AICcmodavg::AICc(fm_wolf_best_QAIC,return.K=TRUE)
+(-2*logLik(fm_wolf_best_QAIC)/chat)+(2*k)
 
-fm_wolf_best_AIC <- colext(~1, ~1, ~scale(CostDist_water)+scale(OakForest)+scale(HighShrub)+scale(LowShrub), ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub), umfm_wolf)
-summary(fm_wolf_best_AIC)
+fm_wolf_best_QAIC <- colext(~1, ~1, ~scale(CostDist_water)+scale(OakForest)+scale(HighShrub)+scale(LowShrub), ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub), umfm_wolf)
+summary(fm_wolf_best_QAIC)
 # no convergence issues
-k <- AICcmodavg::AICc(fm_wolf_best_AIC,return.K=TRUE)
-(-2*logLik(fm_wolf_best_AIC)/chat)+(2*k)
+k <- AICcmodavg::AICc(fm_wolf_best_QAIC,return.K=TRUE)
+(-2*logLik(fm_wolf_best_QAIC)/chat)+(2*k)
 
 #### Backtransform model estimates from logit scale (keeping Intercept at 1) ####
 
@@ -841,48 +831,48 @@ colnames(variables_wolf) <- c("Species","Variable","Occupancy","Occ_SE","Coloniz
 variables_wolf$Species <- "Gray wolf"
 variables_wolf$Variable <- c("Intercept", "Sensitivity","Rad_max","Temp_min","CostDist_road","CostDist_water","OakForest","HighShrub","LowShrub","Urban")
 
-variables_wolf[1,3] <- backTransform(fm_wolf_best_AIC,type="psi")@estimate
-variables_wolf[1,4] <- SE(backTransform(fm_wolf_best_AIC,type="psi"))
+variables_wolf[1,3] <- backTransform(fm_wolf_best_QAIC,type="psi")@estimate
+variables_wolf[1,4] <- SE(backTransform(fm_wolf_best_QAIC,type="psi"))
 
-variables_wolf[1,5] <- backTransform(fm_wolf_best_AIC,type="col")@estimate
-variables_wolf[1,6] <- SE(backTransform(fm_wolf_best_AIC,type="col"))
+variables_wolf[1,5] <- backTransform(fm_wolf_best_QAIC,type="col")@estimate
+variables_wolf[1,6] <- SE(backTransform(fm_wolf_best_QAIC,type="col"))
 
-variables_wolf[1,7] <- backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,0,0),type="ext"))@estimate
-variables_wolf[1,8] <- SE(backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,0,0),type="ext")))
-variables_wolf[6,7] <- backTransform(linearComb(fm_wolf_best_AIC,c(1,1,0,0,0),type="ext"))@estimate
-variables_wolf[6,8] <- SE(backTransform(linearComb(fm_wolf_best_AIC,c(1,1,0,0,0),type="ext")))
-variables_wolf[7,7] <- backTransform(linearComb(fm_wolf_best_AIC,c(1,0,1,0,0),type="ext"))@estimate
-variables_wolf[7,8] <- SE(backTransform(linearComb(fm_wolf_best_AIC,c(1,0,1,0,0),type="ext")))
-variables_wolf[8,7] <- backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,1,0),type="ext"))@estimate
-variables_wolf[8,8] <- SE(backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,1,0),type="ext")))
-variables_wolf[9,7] <- backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,0,1),type="ext"))@estimate
-variables_wolf[9,8] <- SE(backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,0,1),type="ext")))
+variables_wolf[1,7] <- backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,0,0),type="ext"))@estimate
+variables_wolf[1,8] <- SE(backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,0,0),type="ext")))
+variables_wolf[6,7] <- backTransform(linearComb(fm_wolf_best_QAIC,c(1,1,0,0,0),type="ext"))@estimate
+variables_wolf[6,8] <- SE(backTransform(linearComb(fm_wolf_best_QAIC,c(1,1,0,0,0),type="ext")))
+variables_wolf[7,7] <- backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,1,0,0),type="ext"))@estimate
+variables_wolf[7,8] <- SE(backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,1,0,0),type="ext")))
+variables_wolf[8,7] <- backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,1,0),type="ext"))@estimate
+variables_wolf[8,8] <- SE(backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,1,0),type="ext")))
+variables_wolf[9,7] <- backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,0,1),type="ext"))@estimate
+variables_wolf[9,8] <- SE(backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,0,1),type="ext")))
 
-variables_wolf[1,9] <- backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,0,0,0),type="det"))@estimate
-variables_wolf[1,10] <- SE(backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,0,0,0),type="det")))
-variables_wolf[2,9] <- backTransform(linearComb(fm_wolf_best_AIC,c(1,1,0,0,0,0),type="det"))@estimate
-variables_wolf[2,10] <- SE(backTransform(linearComb(fm_wolf_best_AIC,c(1,1,0,0,0,0),type="det")))
-variables_wolf[3,9] <- backTransform(linearComb(fm_wolf_best_AIC,c(1,0,1,0,0,0),type="det"))@estimate
-variables_wolf[3,10] <- SE(backTransform(linearComb(fm_wolf_best_AIC,c(1,0,1,0,0,0),type="det")))
-variables_wolf[4,9] <- backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,1,0,0),type="det"))@estimate
-variables_wolf[4,10] <- SE(backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,1,0,0),type="det")))
-variables_wolf[8,9] <- backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,0,1,0),type="det"))@estimate
-variables_wolf[8,10] <- SE(backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,0,1,0),type="det")))
-variables_wolf[9,9] <- backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,0,0,1),type="det"))@estimate
-variables_wolf[9,10] <- SE(backTransform(linearComb(fm_wolf_best_AIC,c(1,0,0,0,0,1),type="det")))
+variables_wolf[1,9] <- backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,0,0,0),type="det"))@estimate
+variables_wolf[1,10] <- SE(backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,0,0,0),type="det")))
+variables_wolf[2,9] <- backTransform(linearComb(fm_wolf_best_QAIC,c(1,1,0,0,0,0),type="det"))@estimate
+variables_wolf[2,10] <- SE(backTransform(linearComb(fm_wolf_best_QAIC,c(1,1,0,0,0,0),type="det")))
+variables_wolf[3,9] <- backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,1,0,0,0),type="det"))@estimate
+variables_wolf[3,10] <- SE(backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,1,0,0,0),type="det")))
+variables_wolf[4,9] <- backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,1,0,0),type="det"))@estimate
+variables_wolf[4,10] <- SE(backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,1,0,0),type="det")))
+variables_wolf[8,9] <- backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,0,1,0),type="det"))@estimate
+variables_wolf[8,10] <- SE(backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,0,1,0),type="det")))
+variables_wolf[9,9] <- backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,0,0,1),type="det"))@estimate
+variables_wolf[9,10] <- SE(backTransform(linearComb(fm_wolf_best_QAIC,c(1,0,0,0,0,1),type="det")))
 
-m3 <- nonparboot(fm_wolf_best_AIC,B = 10)
-occ_pred_wolf_best_AIC <- data.frame(year = c(2015:2022),
-                                     smoothed_occ = smoothed(fm_wolf_best_AIC)[2,],
+m3 <- nonparboot(fm_wolf_best_QAIC,B = 1000)
+occ_pred_wolf_best_QAIC <- data.frame(year = c(2015:2022),
+                                     smoothed_occ = smoothed(fm_wolf_best_QAIC)[2,],
                                      SE = m3@smoothed.mean.bsse[2,])
-occ_pred_wolf_best_AIC$Species <- 'Gray wolf'
+occ_pred_wolf_best_QAIC$Species <- 'Gray wolf'
 
-wolf_year <- lm(smoothed_occ ~ year, occ_pred_wolf_best_AIC)
+wolf_year <- lm(smoothed_occ ~ year, occ_pred_wolf_best_QAIC)
 summary(wolf_year)
 
 #### Get site-specific occupancy estimates obtained from model output ####
 
-occ_wolf_site <- data.frame(t(fm_wolf_best_AIC@smoothed[2, , ]))
+occ_wolf_site <- data.frame(t(fm_wolf_best_QAIC@smoothed[2, , ]))
 colnames(occ_wolf_site) <- unique(yearlySiteCovs(umfm_wolf)$year)
 occ_wolf_site$grid <- unique(Wolf$grid) 
 
@@ -903,43 +893,41 @@ summary(umfm_ibex)
 fm_ibex_global <- colext(~scale(HighShrub),
                          ~scale(OakForest),
                          ~scale(CostDist_road)+scale(CostDist_water)+scale(OakForest)+scale(HighShrub)+scale(LowShrub)+scale(Urban),
-                         ~scale(year)+scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_ibex)
+                         ~scale(Sensitivity)+scale(Rad_max)+scale(Temp_min)+scale(HighShrub)+scale(LowShrub)+scale(OakForest), umfm_ibex)
 
 #### Test goodness of fit of the global model to correct for overdispersion if necessary ####
 
-gof_ibex_global <- mb.gof.test(fm_ibex_global, plot.hist=FALSE,nsim=10)
+gof_ibex_global <- mb.gof.test(fm_ibex_global, plot.hist=FALSE,nsim=1000)
 gof_ibex_global
 chat <- gof_ibex_global$c.hat.est
-n <- 16
 
 #### Run every possible model combination and estimate AIC / QAIC (based on c-hat value from goodness of fit test) ####
 
 # models_ibex <- foreach(x = 1:nrow(models_all), .combine='rbind') %dopar% {
-#   fm_ibex <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_ibex)
-#   k <- AICcmodavg::AICc(fm_ibex,return.K=TRUE)
-#   if(chat > 1) {k <- k +1}
-#   LogLike <- unmarked::logLik(fm_ibex)
-#   c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_ibex@AIC, QAIC=(-2*LogLike/chat)+(2*k))
+#  fm_ibex <- unmarked::colext(psiformula= as.formula(models_all$psi_formula[x]), gammaformula = as.formula(models_all$gamma_formula[x]), epsilonformula = as.formula(models_all$epsilon_formula[x]), pformula = as.formula(models_all$p_formula[x]), umfm_ibex)
+#  k <- AICcmodavg::AICc(fm_ibex,return.K=TRUE)
+#  if(chat > 1) {k <- k +1}
+#  LogLike <- unmarked::logLik(fm_ibex)
+#  c(psi_formula = models_all$psi_formula[x], gamma_formula = models_all$gamma_formula[x],epsilon_formula = models_all$epsilon_formula[x], p_formula = models_all$p_formula[x],AIC = fm_ibex@AIC, QAIC=(-2*LogLike/chat)+(2*k))
 # }
 # 
+# models_ibex <- as.data.frame(models_ibex,stringsAsFactors = FALSE) 
 # names(models_ibex) <- c("psi_formula","gamma_formula","epsilon_formula","p_formula","AIC","QAIC")
 # if(chat<1) {models_ibex$QAIC <- models_ibex$AIC}
-# models_ibex <- as.data.frame(models_ibex,stringsAsFactors = FALSE)
 # models_ibex$AIC <- as.numeric(models_ibex$AIC)
 # models_ibex$QAIC <- as.numeric(models_ibex$QAIC)
-# 
+#  
 # #write.table(models_ibex, "models_ibex.csv",sep=";",dec=".",row.names=F,col.names=T)
+#  
+# #### Create best model based on AIC / QAIC ####
 # 
+# best_model_QAIC_ibex <- models_ibex[models_ibex$QAIC == min(models_ibex$QAIC),]
+#  
+# fm_ibex_best_QAIC <- colext(psiformula = as.formula(best_model_QAIC_ibex$psi_formula), gammaformula = as.formula(best_model_QAIC_ibex$gamma_formula), epsilonformula = as.formula(best_model_QAIC_ibex$epsilon_formula), pformula = as.formula(best_model_QAIC_ibex$p_formula), umfm_ibex)
+# summary(fm_ibex_best_QAIC)
 
-#### Create best model based on AIC / QAIC ####
-
-# best_model_AIC_ibex <- models_ibex[models_ibex$AIC == min(models_ibex$AIC),]
-# 
-# fm_ibex_best_AIC <- colext(psiformula = as.formula(best_model_AIC_ibex$psi_formula), gammaformula = as.formula(best_model_AIC_ibex$gamma_formula), epsilonformula = as.formula(best_model_AIC_ibex$epsilon_formula), pformula = as.formula(best_model_AIC_ibex$p_formula), umfm_ibex)
-# summary(fm_ibex_best_AIC)
-
-fm_ibex_best_AIC <- colext(~1, ~scale(OakForest), ~1, ~scale(Sensitivity)+scale(Rad_max)+scale(LowShrub)+scale(OakForest), umfm_ibex)
-summary(fm_ibex_best_AIC)
+fm_ibex_best_QAIC <- colext(~1, ~scale(OakForest), ~1, ~scale(Sensitivity)+scale(Rad_max)+scale(LowShrub)+scale(OakForest), umfm_ibex)
+summary(fm_ibex_best_QAIC)
 
 #### Backtransform model estimates from logit scale (keeping Intercept at 1) ####
 
@@ -948,40 +936,40 @@ colnames(variables_ibex) <- c("Species","Variable","Occupancy","Occ_SE","Coloniz
 variables_ibex$Species <- "Iberian ibex"
 variables_ibex$Variable <- c("Intercept", "Sensitivity","Rad_max","Temp_min","CostDist_road","CostDist_water","OakForest","HighShrub","LowShrub","Urban")
 
-variables_ibex[1,3] <- backTransform(fm_ibex_best_AIC,type="psi")@estimate
-variables_ibex[1,4] <- SE(backTransform(fm_ibex_best_AIC,type="psi"))
+variables_ibex[1,3] <- backTransform(fm_ibex_best_QAIC,type="psi")@estimate
+variables_ibex[1,4] <- SE(backTransform(fm_ibex_best_QAIC,type="psi"))
 
-variables_ibex[1,5] <- backTransform(linearComb(fm_ibex_best_AIC,c(1,0),type="col"))@estimate
-variables_ibex[1,6] <- SE(backTransform(linearComb(fm_ibex_best_AIC,c(1,0),type="col")))
-variables_ibex[7,5] <- backTransform(linearComb(fm_ibex_best_AIC,c(1,1),type="col"))@estimate
-variables_ibex[7,6] <- SE(backTransform(linearComb(fm_ibex_best_AIC,c(1,1),type="col")))
+variables_ibex[1,5] <- backTransform(linearComb(fm_ibex_best_QAIC,c(1,0),type="col"))@estimate
+variables_ibex[1,6] <- SE(backTransform(linearComb(fm_ibex_best_QAIC,c(1,0),type="col")))
+variables_ibex[7,5] <- backTransform(linearComb(fm_ibex_best_QAIC,c(1,1),type="col"))@estimate
+variables_ibex[7,6] <- SE(backTransform(linearComb(fm_ibex_best_QAIC,c(1,1),type="col")))
 
-variables_ibex[1,7] <- backTransform(fm_ibex_best_AIC,type="ext")@estimate
-variables_ibex[1,8] <- SE(backTransform(fm_ibex_best_AIC,type="ext"))
+variables_ibex[1,7] <- backTransform(fm_ibex_best_QAIC,type="ext")@estimate
+variables_ibex[1,8] <- SE(backTransform(fm_ibex_best_QAIC,type="ext"))
 
-variables_ibex[1,9] <- backTransform(linearComb(fm_ibex_best_AIC,c(1,0,0,0,0),type="det"))@estimate
-variables_ibex[1,10] <- SE(backTransform(linearComb(fm_ibex_best_AIC,c(1,0,0,0,0),type="det")))
-variables_ibex[2,9] <- backTransform(linearComb(fm_ibex_best_AIC,c(1,1,0,0,0),type="det"))@estimate
-variables_ibex[2,10] <- SE(backTransform(linearComb(fm_ibex_best_AIC,c(1,1,0,0,0),type="det")))
-variables_ibex[3,9] <- backTransform(linearComb(fm_ibex_best_AIC,c(1,0,1,0,0),type="det"))@estimate
-variables_ibex[3,10] <- SE(backTransform(linearComb(fm_ibex_best_AIC,c(1,0,1,0,0),type="det")))
-variables_ibex[9,9] <- backTransform(linearComb(fm_ibex_best_AIC,c(1,0,0,1,0),type="det"))@estimate
-variables_ibex[9,10] <- SE(backTransform(linearComb(fm_ibex_best_AIC,c(1,0,0,1,0),type="det")))
-variables_ibex[7,9] <- backTransform(linearComb(fm_ibex_best_AIC,c(1,0,0,0,1),type="det"))@estimate
-variables_ibex[7,10] <- SE(backTransform(linearComb(fm_ibex_best_AIC,c(1,0,0,0,1),type="det")))
+variables_ibex[1,9] <- backTransform(linearComb(fm_ibex_best_QAIC,c(1,0,0,0,0),type="det"))@estimate
+variables_ibex[1,10] <- SE(backTransform(linearComb(fm_ibex_best_QAIC,c(1,0,0,0,0),type="det")))
+variables_ibex[2,9] <- backTransform(linearComb(fm_ibex_best_QAIC,c(1,1,0,0,0),type="det"))@estimate
+variables_ibex[2,10] <- SE(backTransform(linearComb(fm_ibex_best_QAIC,c(1,1,0,0,0),type="det")))
+variables_ibex[3,9] <- backTransform(linearComb(fm_ibex_best_QAIC,c(1,0,1,0,0),type="det"))@estimate
+variables_ibex[3,10] <- SE(backTransform(linearComb(fm_ibex_best_QAIC,c(1,0,1,0,0),type="det")))
+variables_ibex[9,9] <- backTransform(linearComb(fm_ibex_best_QAIC,c(1,0,0,1,0),type="det"))@estimate
+variables_ibex[9,10] <- SE(backTransform(linearComb(fm_ibex_best_QAIC,c(1,0,0,1,0),type="det")))
+variables_ibex[7,9] <- backTransform(linearComb(fm_ibex_best_QAIC,c(1,0,0,0,1),type="det"))@estimate
+variables_ibex[7,10] <- SE(backTransform(linearComb(fm_ibex_best_QAIC,c(1,0,0,0,1),type="det")))
 
-m3 <- nonparboot(fm_ibex_best_AIC,B = 10)
-occ_pred_ibex_best_AIC <- data.frame(year = c(2015:2022),
-                                     smoothed_occ = smoothed(fm_ibex_best_AIC)[2,],
+m3 <- nonparboot(fm_ibex_best_QAIC,B = 1000)
+occ_pred_ibex_best_QAIC <- data.frame(year = c(2015:2022),
+                                     smoothed_occ = smoothed(fm_ibex_best_QAIC)[2,],
                                      SE = m3@smoothed.mean.bsse[2,])
-occ_pred_ibex_best_AIC$Species <- 'Iberian ibex'
+occ_pred_ibex_best_QAIC$Species <- 'Iberian ibex'
 
-ibex_year <- lm(smoothed_occ ~ year, occ_pred_ibex_best_AIC)
+ibex_year <- lm(smoothed_occ ~ year, occ_pred_ibex_best_QAIC)
 summary(ibex_year)
 
 #### Get site-specific occupancy estimates obtained from model output ####
 
-occ_ibex_site <- data.frame(t(fm_ibex_best_AIC@smoothed[2, , ]))
+occ_ibex_site <- data.frame(t(fm_ibex_best_QAIC@smoothed[2, , ]))
 colnames(occ_ibex_site) <- unique(yearlySiteCovs(umfm_ibex)$year)
 occ_ibex_site$grid <- unique(Ibex$grid) 
 
@@ -995,7 +983,7 @@ occ_ibex_site_long$Species <- "Iberian ibex"
 ######## Create table for all species ####### 
 
 ## Occupancy estimates for each species per year
-occ_pred_all <- rbind(occ_pred_cattle_best_QAIC,occ_pred_horse_best_AIC,occ_pred_deer_best_QAIC,occ_pred_boar_best_QAIC,occ_pred_fox_best_QAIC,occ_pred_wolf_best_AIC,occ_pred_ibex_best_AIC)
+occ_pred_all <- rbind(occ_pred_cattle_best_QAIC,occ_pred_horse_best_QAIC,occ_pred_deer_best_QAIC,occ_pred_boar_best_QAIC,occ_pred_fox_best_QAIC,occ_pred_wolf_best_QAIC,occ_pred_ibex_best_QAIC)
 occ_pred_all$Species <- as.factor(occ_pred_all$Species)
 occ_pred_all$Species <- factor(occ_pred_all$Species, c("Domestic cattle", "Domestic horse", "European roe deer","Wild boar","Red fox","Gray wolf","Iberian ibex"))
 write.table(occ_pred_all, "occ_pred_all.csv",sep=";",dec=".",row.names=F,col.names=T)
@@ -1369,4 +1357,5 @@ legend <- get_only_legend(occ_all_mod_legend)
 png(file="Figure_5_Interaction_plot.png", width=1600, height=600)
 grid.arrange(cattle_int, horse_int, wolf_int, legend, nrow=1,widths=c(1/3,1/3,1/3,1/7))
 dev.off()
+
 
