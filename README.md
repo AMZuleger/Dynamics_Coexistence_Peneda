@@ -18,21 +18,6 @@ The issue of agricultural land abandonment in Southern Europe has raised concern
 * yearlySiteCovs_grid.rds --> yearly site covariates for each primary sampling period
 * ObsCovs.rds --> observation covariates for each secondary sampling period
 
-### Results (produced through R script)
-
-* Occupancy estimates per species for each grid cell per primary sampling period obtained from final models (e.g. Occ_cattle_site.csv)
-* occ_all_grid.csv --> Occupancy estimates for all species per primary sampling period and grid cell obtained from final models
-* occ_all_site_long.csv --> long format version of occ_all_grid.csv 
-* occ_pred_all.csv --> Occupancy estimates and standard errors for each species per primary sampling period obtained from final models through bootstrapping
-* var_effect.csv --> effect size of variables obtained from final models
-  
-
-### Figures (produced thorugh R script)
-
-* Figure_3_Variable_effects.png --> Effect sizes of the variables influencing initial Occupancy, Colonization probability, extinction probability and detection probability according to the best model after backwards elimination process (p > 0.157).
-* Figure_4_Occupancy_trends.png --> Occupancy trends of the study species across years based on the final model obtained. A) Smoothed occupancy estimates and standard errors for the entire study area obtained from non-parametric bootstrapping with 1,000 iterations. B) Occupancy trends based on linear regression fitted to site-specific occupancy estimates.
-* Figure_5_Interaction_plot.png --> Effect of the occurrence of A) domestic cattle, B) domestic horses and C) wolf on the occupancy of the study species obtained from a linear regression based on occupancy estimates per sampling location and year obtained from the final models. 
-
 
 ## Authors
 
